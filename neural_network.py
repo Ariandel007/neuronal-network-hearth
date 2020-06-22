@@ -1,160 +1,119 @@
 import numpy as np
-import pandas as pd
+import matplotlib.pyplot as plt
 
-class NeuralNetwork:
+#red de 14 entadas, capa oculta de 8 nodos y una nodo de salida
+class NeuralNet():
 
-    def __init__(self, init_inputs, salidasEsperadas, const_aprendizaje, neuronasCapaEntrada, neuronasCapaOculta, neuronasCapaSalida):
-        self.init_inputs = init_inputs
-        self.salidasEsperada = salidasEsperadas
+    def __init__(self, capas=[14, 7, 1], ratio_aprendizaje=0.001, iterations=4100):
+        self.parametros = {} #aca se guardaran los pesos y bias
+        self.capas = capas
+        self.ratio_aprendizaje = ratio_aprendizaje
+        self.iterations = iterations
+        self.perdida = []
+        self.X = None
+        self.y = None
 
-        self.const_aprendizaje = const_aprendizaje
-        self.neuronasCapaEntrada = neuronasCapaEntrada
-        self.neuronasCapaOculta = neuronasCapaOculta
-        self.neuronasCapaSalida = neuronasCapaSalida
+    def init_pesos(self):
+        # inicializar los pesos de una distribucion normal aleatoria
 
+        np.random.seed(1)  # inicializamos semilla aleatoria(número utilizado para inicializar un generador de números pseudoaleatorios)
+        self.parametros["W1"] = np.random.randn(self.capas[0], self.capas[1])# esta matriz de peso tendra un peso de 14 x 7
+        self.parametros['b1'] = np.random.randn(self.capas[1], ) # primero bias sera un vector de tamaño 7 porque tiene 7 nodos ocultos
+        self.parametros['W2'] = np.random.randn(self.capas[1], self.capas[2]) # la segunda matriz de pesos sera de 7 x 1 porque tiene 7 nodos ocultos y un nodo de salida
+        self.parametros['b2'] = np.random.randn(self.capas[2], ) # solo un tamño porque solo hay ua salida
 
-        self.pesos_capaOculta = np.random.uniform(size=(self.neuronasCapaEntrada, self.neuronasCapaOculta))
-        self.bias_capaOculta = np.random.uniform(size=(1, self.neuronasCapaOculta))
-        self.pesos_capaSalida = np.random.uniform(size=(self.neuronasCapaOculta, self.neuronasCapaSalida))
-        self.bias_capaSalida = np.random.uniform(size=(1, self.neuronasCapaSalida))
-        self.hidden_layer_output = float
-        self.errors = []
-        self.output = []
+    def relu(self, Z):
 
-    def sigmoid(self, x):
-        return 1 / (1 + np.exp(-x))
+        # El relu realiza una operacion umbral a cada elemento donde los valores menores que 0 se establecen en 0
+        #esto realiza un relu para matrices porque principalmente estara lidiando con arrays y no valores unicos
+        return np.maximum(0, Z)
 
-    def sigmoid_derivative(self, x):
-        return x * (1 - x)
+    def sigmoide(self, Z):
+        #La función sigmoide toma números reales en cualquier rango y los comprime a una salida de valor real entre 0 y 1.
 
-    def mostar_datos_iniciales(self):
-        print("Pesos iniciales de la capa oculta: ", end='')
-        print(*self.pesos_capaOculta)
-        print("BIAS inicial de la capa oculta: ", end='')
-        print(*self.bias_capaOculta)
-        print("Pesos iniciales de la capa de salida: ", end='')
-        print(*self.pesos_capaSalida)
-        print("BIAS inicial de la capa de salida: ", end='')
-        print(*self.bias_capaSalida)
-        print("///////////////////////////////////////////////////////////////////////////////////////////////////////")
+        return 1.0 / (1.0 + np.exp(-Z))
 
-    def forward_propagation(self, inputs):
-        hidden_layer_activation = np.dot(inputs, self.pesos_capaOculta)
-        hidden_layer_activation += self.bias_capaOculta
-        self.hidden_layer_output = self.sigmoid(hidden_layer_activation)
+    def entropia_cruzada(self, y, yhat):
+        nsample = len(y)
+        perdida = -1 / nsample * (np.sum(np.multiply(np.log(yhat), y) + np.multiply((1 - y), np.log(1 - yhat + 0.000001))))
+        return perdida
 
-        output_layer_activation = np.dot(self.hidden_layer_output, self.pesos_capaSalida)
-        output_layer_activation += self.bias_capaSalida
-        predicted_output = self.sigmoid(output_layer_activation)
+    def forward_propagation(self):
 
-        return predicted_output
+        #Realiza la propagación hacia adelante.
 
-    def entrenar(self, num_iterations):
-        for _ in range(num_iterations):
+        Z1 = self.X.dot(self.parametros['W1']) + self.parametros['b1']
+        A1 = self.relu(Z1)
+        Z2 = A1.dot(self.parametros['W2']) + self.parametros['b2']
+        y_calculada = self.sigmoide(Z2)
+        perdida = self.entropia_cruzada(self.y, y_calculada)
 
-            self.output = self.forward_propagation(self.init_inputs)
+        # guardar los valores calcualdos
+        self.parametros['Z1'] = Z1
+        self.parametros['Z2'] = Z2
+        self.parametros['A1'] = A1
 
-            # Backpropagation
-            error = self.salidasEsperada - self.output
-            d_predicted_output = error * self.sigmoid_derivative(self.output)
-            self.errors.append(error)
+        return y_calculada, perdida
 
-            error_hidden_layer = d_predicted_output.dot(self.pesos_capaSalida.T)
-            d_hidden_layer = error_hidden_layer * self.sigmoid_derivative(self.hidden_layer_output)
+    def back_propagation(self, y_calculada):
+        #Calcula los derivados y actualiza los pesos y bias.
 
-            # Actualizar los pesos y Biases
-            self.pesos_capaSalida += self.hidden_layer_output.T.dot(d_predicted_output) * self.const_aprendizaje
-            self.bias_capaSalida += np.sum(d_predicted_output) * self.const_aprendizaje
-            self.pesos_capaOculta += self.init_inputs.T.dot(d_hidden_layer) * self.const_aprendizaje
-            self.bias_capaOculta += np.sum(d_hidden_layer) * self.const_aprendizaje
+        def dRelu(x):
+            x[x <= 0] = 0
+            x[x > 0] = 1
+            return x
 
-    def mostrar_datos_finales(self):
-        print("Peso finales de la capa oculta: ", end='')
-        print(self.pesos_capaOculta)
-        print("BIAS finales de la capa oculta: ", end='')
-        print(self.bias_capaOculta)
-        print("Peso finales de la capa salida:  ", end='')
-        print(self.pesos_capaSalida)
-        print("BIAS finales de la capa salida: ", end='')
-        print(self.bias_capaSalida)
-        print("\nSalidas de la red neuronal luego de 10,000 epocas: ", end='   \n')
-        print(self.output)
+        # calculamos las derivadas
+        derivada_perdida_respecto_a_y_calculada = -(np.divide(self.y, y_calculada) - np.divide((1 - self.y), (1 - y_calculada + 0.000001)))
+        derivada_perdida_respecto_a_sig = y_calculada * (1 - y_calculada)
+        derivada_perdida_respecto_a_z2 = derivada_perdida_respecto_a_y_calculada * derivada_perdida_respecto_a_sig
 
+        derivada_perdida_respecto_a_A1 = derivada_perdida_respecto_a_z2.dot(self.parametros['W2'].T)
+        derivada_perdida_respecto_a_w2 = self.parametros['A1'].T.dot(derivada_perdida_respecto_a_z2)
+        derivada_perdida_respecto_a_b2 = np.sum(derivada_perdida_respecto_a_z2, axis=0)
 
-#leer archivos
-arch = pd.read_csv('dataset.csv', sep=';')
-#Columnas de dataset
+        derivada_perdida_respecto_a_z1 = derivada_perdida_respecto_a_A1 * dRelu(self.parametros['Z1'])
+        derivada_perdida_respecto_a_w1 = self.X.T.dot(derivada_perdida_respecto_a_z1)
+        derivada_perdida_respecto_a_b1 = np.sum(derivada_perdida_respecto_a_z1, axis=0)
 
-age = arch['age'].values
-sex = arch['sex'].values
-height = arch['height'].values
-weight = arch['weight'].values
-qrs_duration = arch['qrs_duration'].values
-pr_interval = arch['p-r_interval'].values
-qt_interval = arch['q-t_interval'].values
-t_interval = arch['t_interval'].values
-p_interval = arch['p_interval'].values
-qrs = arch['qrs'].values
-heart_rate = arch['heart_rate'].values
-q_wave = arch['q_wave'].values
-r_wave = arch['r_wave'].values
-s_wave = arch['s_wave'].values
+        # actualizar los pesos y bias
+        self.parametros['W1'] = self.parametros['W1'] - self.ratio_aprendizaje * derivada_perdida_respecto_a_w1
+        self.parametros['W2'] = self.parametros['W2'] - self.ratio_aprendizaje * derivada_perdida_respecto_a_w2
+        self.parametros['b1'] = self.parametros['b1'] - self.ratio_aprendizaje * derivada_perdida_respecto_a_b1
+        self.parametros['b2'] = self.parametros['b2'] - self.ratio_aprendizaje * derivada_perdida_respecto_a_b2
 
-diagnosis = arch['diagnosis'].values
+    def entrenar(self, X, y):
+        #Entrena la red neuronal usuando la data y etiquetas
 
-#numero de pesos
-num_w = 14
-#numero de pesos capa oculta
-num_w_h = 7
-#entradas
-arr_input = []
-#etiquetas
-arr_output = []
+        self.X = X
+        self.y = y
+        self.init_pesos()  # inicializar pesos y bias
 
-size_dataset = len(age)
+        for i in range(self.iterations):
+            y_calculada, perdida = self.forward_propagation()
+            self.back_propagation(y_calculada)
+            self.perdida.append(perdida)
 
-for i in range(size_dataset):
-    arr_elements = []
-    arr_elements.append(int(age[i]))
-    arr_elements.append(int(sex[i]))
-    arr_elements.append(int(height[i]))
-    arr_elements.append(int(weight[i]))
-    arr_elements.append(int(qrs_duration[i]))
-    arr_elements.append(int(pr_interval[i]))
-    arr_elements.append(int(qt_interval[i]))
-    arr_elements.append(int(t_interval[i]))
-    arr_elements.append(int(p_interval[i]))
-    arr_elements.append(int(qrs[i]))
-    if heart_rate[i] == '?':
-        heart_rate[i] = 72
-    arr_elements.append(int(heart_rate[i]))
-    arr_elements.append(int(q_wave[i]))
-    arr_elements.append(int(r_wave[i]))
-    arr_elements.append(int(s_wave[i]))
+    def predecir(self, X):
 
+        Z1 = X.dot(self.parametros['W1']) + self.parametros['b1']
+        A1 = self.relu(Z1)
+        Z2 = A1.dot(self.parametros['W2']) + self.parametros['b2']
+        prediccion = self.sigmoide(Z2)
+        # redondear la prediccion
+        return np.round(prediccion)
 
-    arr_input.append(arr_elements)
+    def exactitud(self, y, y_calculada):
+        #calcular exactitud de los resulatdos calculado con las etiquetas reales
 
-    if diagnosis[i] == 2:
-        arr_out = [0]
-    else:
-        arr_out = [1]
-    arr_output.append(arr_out)
+        acc = int(sum(y == y_calculada) / len(y) * 100)
+        return acc
 
+    def plot_perdida(self):
+        #perdida de la curvatura
 
-inputs = np.array(arr_input)
-
-expected_output = np.array(arr_output)
-
-nn = NeuralNetwork(inputs, expected_output, 0.1, num_w, num_w_h, 1)
-
-nn.mostar_datos_iniciales()
-print("-------------------------------------")
-nn.entrenar(20000)
-print("-------------------------------------")
-nn.mostrar_datos_finales()
-# print("-----------probemoslo--------------------------")
-# #si sale 1 esta sano, si sale 0 esta enfermo
-# num = nn.forward_propagation(np.array([[54, 1, 160, 63, 82, 158, 410, 141, 87, 25, 54, 0, 48, 0]]))[0][0]
-# print(num)
-# print(round(num))
+        plt.plot(self.perdida)
+        plt.xlabel("Iteracion")
+        plt.ylabel("perdida")
+        plt.title("Perdida de la curvatura por entrenamiento")
+        plt.show()
