@@ -2,6 +2,7 @@ import pandas as pd
 import neural_network
 from sklearn.preprocessing import StandardScaler
 
+
 #leer archivos
 arch = pd.read_csv('dataset.csv', sep=';')
 #Columnas de dataset
@@ -33,10 +34,16 @@ precistion = nn.exactitud(y_label, result)
 print("procentaje de precision", float(precistion), "%")
 result = nn.predecir(X)
 
+print("-----------------------------------------------------------------------------------------------------------:")
+print("-----------------------------------------------------------------------------------------------------------:")
+print("-----------------------------------------------------------------------------------------------------------:")
+
 test = [[70, 1, 160, 84, 100, 165, 397, 163, 108, -10, 88, 0, 48, 32]]
 
+print("Vamos a predecir este test:", test)
+
+ # estandarizamos a la escala del dataset
 test_nn =sc.transform(test)
 
-print(nn.predecir(test_nn))
-
-nn.plot_perdida()
+print("El diagnostico es (0.0 esta sano y 1.0 es que hay enfermedad coronaria):")
+print(nn.predecir(test_nn)[0][0])

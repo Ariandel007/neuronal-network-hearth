@@ -1,5 +1,4 @@
 import numpy as np
-import matplotlib.pyplot as plt
 
 #red de 14 entadas, capa oculta de 8 nodos y una nodo de salida
 class NeuralNet():
@@ -9,7 +8,7 @@ class NeuralNet():
         self.capas = capas
         self.ratio_aprendizaje = ratio_aprendizaje
         self.iterations = iterations
-        self.perdida = []
+        # self.perdida = []
         self.X = None
         self.y = None
 
@@ -92,7 +91,8 @@ class NeuralNet():
         for i in range(self.iterations):
             y_calculada, perdida = self.forward_propagation()
             self.back_propagation(y_calculada)
-            self.perdida.append(perdida)
+
+            # self.perdida.append(perdida)
 
     def predecir(self, X):
 
@@ -108,12 +108,3 @@ class NeuralNet():
 
         acc = int(sum(y == y_calculada) / len(y) * 100)
         return acc
-
-    def plot_perdida(self):
-        #perdida de la curvatura
-
-        plt.plot(self.perdida)
-        plt.xlabel("Iteracion")
-        plt.ylabel("perdida")
-        plt.title("Perdida de la curvatura por entrenamiento")
-        plt.show()
